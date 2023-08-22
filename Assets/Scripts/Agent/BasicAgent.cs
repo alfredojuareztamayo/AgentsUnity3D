@@ -5,35 +5,44 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class BasicAgent : MonoBehaviour {
 
-    [SerializeField] float maxVel, maxSteeringForce;
-    SteeringBehaviours sb;
-    Transform target;
+    [SerializeField] float m_maxVel, m_maxSteeringForce;
+    SteeringBehaviours m_sb;
+    Transform m_target;
+    Rigidbody m_rigidbody;
+
     // Start is called before the first frame update
     void Start() {
-
+        m_sb = new SteeringBehaviours();
+        m_rigidbody = GetComponent<Rigidbody>();
     }
 
     // Update is called once per frame
     void Update() {
-        sb.seek(transform, target);
+        if(m_target != null) {
+            m_rigidbody.velocity = m_sb.seek(this.transform, m_target);
+           // transform.LookAt(m_target.position);
+        }
     }
 
     private void OnTriggerEnter(Collider other) {
         if (other.CompareTag("Enemy")) {
-            target = other.transform;
+            m_target = other.transform;
         }
     }
 
     private void OnTriggerExit(Collider other) {
-        if(target != null) {
-            target = null;
+        if(m_target != null) {
+            m_target = null;
         }
     }
 
+    private void perceptionManager() {
+
+    }
     public float getMaxVel() {
-        return maxVel;
+        return m_maxVel;
     }
     public float getMaxSteeringForce() {
-        return maxVel;
+        return m_maxVel;
     }
 }
