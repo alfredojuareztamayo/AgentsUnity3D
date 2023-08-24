@@ -14,8 +14,13 @@ public class SteeringBehaviours{
         Vector3 steering = desiredVel - agentRB.velocity;
         steering /= agentRB.mass;
         Vector3.ClampMagnitude(steering, agentBasic.getMaxSteeringForce());
-        steering.y = agentRB.velocity.y;
-        agent.transform.LookAt(steering);
+        Vector3 toLook = 
+            new Vector3(steering.x + target.position.x,
+                agentRB.position.y, 
+                steering.z + target.position.z
+            );
+        //steering.y = agentRB.velocity.y;
+        agent.transform.LookAt(toLook);
         return steering;
     }
 
