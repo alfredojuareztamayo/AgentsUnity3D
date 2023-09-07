@@ -16922,8 +16922,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 0}
-  checkLayerTeam: 0
   bullet: {fileID: 7697464519738508774, guid: 42bfecc7fc645464dae6997f53b75c56, type: 3}
+  checkLayerTeam: 0
 --- !u!114 &1786746478
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -21975,7 +21975,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1941728527
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -22012,8 +22012,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 0}
-  checkLayerTeam: 1
   bullet: {fileID: 7697464519738508774, guid: 42bfecc7fc645464dae6997f53b75c56, type: 3}
+  checkLayerTeam: 1
 --- !u!54 &1941728529
 Rigidbody:
   m_ObjectHideFlags: 0

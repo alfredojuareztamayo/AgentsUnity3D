@@ -10,29 +10,53 @@ using UnityEngine;
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 public class AgentTank : MonoBehaviour {
-    private AgentBasic2 agenteTank;
     private StatsBasicAgent statsBA;
-    private SteeringBehaviour2 m_stb;
-    public Transform target;
+   // private SteeringBehaviour2 m_stb;
     private Rigidbody m_rigidbody;
-    Collider[] eyePercived;
+    private Collider[] eyePercived;
+
+    public Transform target;
+
+    private enum MovementAgent { None, Seek, Flee }
+    private enum ActionAgent { None, Attack, Heal, Running }
+
+    private MovementAgent moveState = MovementAgent.None;
+    private ActionAgent actionState = ActionAgent.None;
+
     [Header("Set to true for team blue")]
     public bool checkLayerTeam;
     private int layerMask;
-    private ActionAgent actionState;
-    private MovementAgent moveState;
 
-    /// <summary>
-    /// Initialization method called when the object is created.
-    /// </summary>
+    private bool isHealing = false;
+    private float healingRate = 5f; // Velocidad de curación por segundo
+    private float maxVida = 1000f; // Valor máximo de vida
+
     private void Start() {
-        // Retrieve and initialize components
+        InitializeComponents();
+    }
+
+    private void Update() {
+        DecisionManager();
+    }
+
+    private void FixedUpdate() {
+        PerceptionManager();
+
+        // Asegurarse de que target sea nulo si no se ha encontrado ningún objetivo en la percepción
+        //if (target == null) {
+        //    moveState = MovementAgent.None;
+        //    actionState = ActionAgent.None;
+        //}
+    }
+
+    private void InitializeComponents() {
         statsBA = GetComponent<StatsBasicAgent>();
-        agenteTank = new AgentBasic2(TypeAgent2.Tank);
-        m_stb = new SteeringBehaviour2();
+       // agenteTank = new AgentBasic2(TypeAgent2.Tank);
+       // m_stb = new SteeringBehaviour2();
         m_rigidbody = GetComponent<Rigidbody>();
 
-        // Initialize agent's stats
+        AgentBasic2 agenteTank = new AgentBasic2(TypeAgent2.Tank);
+
         statsBA.Vida = agenteTank.Vida;
         statsBA.Velocidad = agenteTank.Velocidad;
         statsBA.Armadura = agenteTank.Armadura;
@@ -42,65 +66,47 @@ public class AgentTank : MonoBehaviour {
         statsBA.TypeAgent = TypeAgent2.Tank;
         statsBA.EyesPerceptionRad = 45f;
 
-        if (checkLayerTeam) {
-            layerMask = 1 << 6;
-        } else {
-            layerMask = 1 << 7;
-        }
+        // Establecer la máscara de capa según el equipo
+        layerMask = checkLayerTeam ? 1 << 6 : 1 << 7;
     }
 
-    /// <summary>
-    /// Update method called once per frame to make decisions.
-    /// </summary>
-    private void Update() {
-        DecisionManager();
-    }
-
-    /// <summary>
-    /// FixedUpdate method called at a fixed interval for physics updates.
-    /// </summary>
-    private void FixedUpdate() {
-        PerceptionManager();
-    }
-
-    /// <summary>
-    /// Manages perception by detecting nearby objects.
-    /// </summary>
     private void PerceptionManager() {
         eyePercived = Physics.OverlapSphere(statsBA.EyePerception.position, statsBA.EyesPerceptionRad, layerMask);
     }
 
-    /// <summary>
-    /// Manages decision-making based on perception.
-    /// </summary>
     private void DecisionManager() {
         if (eyePercived == null) {
+            // Si no se percibe ningún objetivo, establecer el objetivo como nulo (ninguno)
+           // target = null;
+            //moveState = MovementAgent.None;
+            //actionState = ActionAgent.None;
             return;
         }
 
-        float dist;
-        TypeAgent2 tempType;
         foreach (Collider obj in eyePercived) {
-            dist = Vector3.Distance(this.transform.position, obj.transform.position);
+            float dist = Vector3.Distance(transform.position, obj.transform.position);
+            TypeAgent2 tempType = obj.GetComponent<StatsBasicAgent>().TypeAgent;
+
             if (dist > 50) {
                 moveState = MovementAgent.None;
                 actionState = ActionAgent.Heal;
                 continue;
             }
 
-            tempType = obj.GetComponent<StatsBasicAgent>().TypeAgent;
             if (tempType == TypeAgent2.Melee && dist > 30f) {
                 target = obj.transform;
                 moveState = MovementAgent.Seek;
                 actionState = ActionAgent.None;
                 break;
             }
+
             if (tempType == TypeAgent2.Melee && dist < 5f) {
                 target = obj.transform;
                 moveState = MovementAgent.None;
                 actionState = ActionAgent.Attack;
                 break;
             }
+
             if (tempType == TypeAgent2.Tank && dist < 5f) {
                 target = obj.transform;
                 moveState = MovementAgent.None;
@@ -114,9 +120,6 @@ public class AgentTank : MonoBehaviour {
         eyePercived = null;
     }
 
-    /// <summary>
-    /// Manages movement behavior based on the specified movement agent.
-    /// </summary>
     private void MovementManager(MovementAgent movementAgent) {
         switch (movementAgent) {
             case MovementAgent.None:
@@ -129,9 +132,6 @@ public class AgentTank : MonoBehaviour {
         }
     }
 
-    /// <summary>
-    /// Manages action behavior based on the specified action agent.
-    /// </summary>
     private void ActionManager(ActionAgent actionAgent) {
         switch (actionAgent) {
             case ActionAgent.None:
@@ -141,9 +141,12 @@ public class AgentTank : MonoBehaviour {
                 StartCoroutine(MentalAttack());
                 break;
             case ActionAgent.Heal:
-                StartCoroutine(HealingProcess());
-                if (statsBA.Vida > 1000) {
-                    break;
+                if (!isHealing) {
+                    StartCoroutine(HealingProcess());
+                }
+                if (statsBA.Vida >= maxVida) {
+                    // Detener la curación si se alcanza el valor máximo de vida
+                    isHealing = false;
                 }
                 break;
             case ActionAgent.Running:
@@ -151,29 +154,32 @@ public class AgentTank : MonoBehaviour {
         }
     }
 
-    /// <summary>
-    /// Coroutine to start chasing the target.
-    /// </summary>
     private IEnumerator StartChasing() {
         GetComponent<Renderer>().material.color = Color.cyan;
-        m_rigidbody.velocity = m_stb.Seek(this.transform, target);
-       m_stb.lookAt(transform);
+        m_rigidbody.velocity = SteeringBehaviour2.Seek(transform, target.position);
+        SteeringBehaviour2.lookAt(transform);
         yield return new WaitForSeconds(3f);
     }
 
-    /// <summary>
-    /// Coroutine to perform the healing process.
-    /// </summary>
     private IEnumerator HealingProcess() {
+        isHealing = true; // Comenzar proceso de curación
         GetComponent<Renderer>().material.color = Color.yellow;
-        yield return new WaitForSeconds(4f);
+
+        while (isHealing) {
+            statsBA.Vida += healingRate * Time.deltaTime; // Curación gradual por segundo
+
+            if (statsBA.Vida >= maxVida) {
+                // Detener la curación si se alcanza el valor máximo de vida
+                isHealing = false;
+            }
+
+            yield return null;
+        }
+
         moveState = MovementAgent.None;
-        statsBA.Vida += 10;
+        GetComponent<Renderer>().material.color = Color.white;
     }
 
-    /// <summary>
-    /// Coroutine to perform a mental attack on the target.
-    /// </summary>
     private IEnumerator MentalAttack() {
         if (!target.GetComponent<StatsBasicAgent>().ProtectedAttack) {
             target.GetComponent<StatsBasicAgent>().Vida -= 10;

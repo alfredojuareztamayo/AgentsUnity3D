@@ -8,47 +8,29 @@ using UnityEngine;
 /// <summary>
 /// This class defines various steering behaviors that agents can use for movement.
 /// </summary>
-public class SteeringBehaviour2 {
+public static class SteeringBehaviour2 {
     /// <summary>
     /// Calculates steering force for seeking a target.
     /// </summary>
     /// <param name="agent">The agent's transform.</param>
     /// <param name="target">The target's transform.</param>
     /// <returns>The steering force to seek the target.</returns>
-    public Vector3 Seek(Transform agent, Transform target) {
+    public static Vector3 Seek(Transform agent, Vector3 target) {
         StatsBasicAgent agentBasic = agent.GetComponent<StatsBasicAgent>();
         Rigidbody agentRB = agent.GetComponent<Rigidbody>();
 
-        Vector3 desiredVel = target.position - agent.position;
+        Vector3 desiredVel = target - agent.position;
         desiredVel.Normalize();
         desiredVel *= agentBasic.MaxVel;
         Vector3 steering = desiredVel - agentRB.velocity;
-        steering = Vector3.ClampMagnitude(steering, agentBasic.SteeringForce);
+        steering = truncate(steering, agentBasic.SteeringForce);
         steering /= agentRB.mass;
-        steering =Vector3.ClampMagnitude(steering, agentBasic.SteeringForce);
+        steering += agentRB.velocity;
+        steering =truncate(steering, agentBasic.SteeringForce);
+        steering.y =0;
         return steering;
     }
 
-    public  void lookAt(Transform agent) {
-        Vector3 copyVel = agent.GetComponent<Rigidbody>().velocity;
-        float massCop = agent.GetComponent<Rigidbody>().mass;
-        Vector3 agentRBVel = new Vector3(copyVel.x, copyVel.y, copyVel.z);
-        agentRBVel.Normalize();
-        agentRBVel /= massCop;
-        //Vector3 toLook = new Vector3(
-        //            steering.x + target.position.x,
-        //            agentRB.position.y,
-        //            steering.z + target.position.z
-        //        );
-        //agent.transform.LookAt(toLook);
-        Vector3 toLook = new Vector3(
-                    agentRBVel.x + agent.position.x,
-                    agent.position.y,
-                    agentRBVel.z + agent.position.z
-                );
-        
-        agent.transform.LookAt(toLook);
-    }
 
     /// <summary>
     /// Calculates steering force for fleeing from a target.
@@ -56,17 +38,22 @@ public class SteeringBehaviour2 {
     /// <param name="agent">The agent's transform.</param>
     /// <param name="target">The target's transform.</param>
     /// <returns>The steering force to flee from the target.</returns>
-    public Vector3 Flee(Transform agent, Transform target) {
-        StatsBasicAgent agentBasic = agent.GetComponent<StatsBasicAgent>();
+    public static Vector3 Flee(Transform agent, Vector3 target) {
+        return Seek(agent, target * -1);
+    }
+    public static void lookAt(Transform agent) {
         Rigidbody agentRB = agent.GetComponent<Rigidbody>();
+        Vector3 agentRBVel = agentRB.velocity;
 
-        Vector3 desiredVel = agent.position - target.position; // Calculate the opposite direction
-        desiredVel.Normalize();
-        desiredVel *= agentBasic.MaxVel;
-        Vector3 steering = desiredVel - agentRB.velocity;
-        steering /= agentRB.mass;
-        Vector3.ClampMagnitude(steering, agentBasic.SteeringForce);
-        return steering;
+        // Calcula la velocidad de rotación en función de la masa del agente
+        float rotationSpeed = agentRBVel.magnitude / agentRB.mass;
+
+        // Calcula la dirección a la que debe mirar el agente
+        Vector3 toLook = agent.position + agentRBVel.normalized;
+
+        // Aplica la rotación gradualmente en función de la velocidad de rotación
+        Quaternion targetRotation = Quaternion.LookRotation(toLook - agent.position);
+        agent.rotation = Quaternion.Slerp(agent.rotation, targetRotation, Time.deltaTime * rotationSpeed);
     }
 
     /// <summary>
@@ -77,7 +64,7 @@ public class SteeringBehaviour2 {
     /// <param name="wanderDistance">The distance for wandering.</param>
     /// <param name="wanderAngle">The wander angle.</param>
     /// <returns>The steering force for wandering.</returns>
-    public Vector3 Wander(Transform agent, float wanderRadius, float wanderDistance, float wanderAngle) {
+    public static Vector3 Wander(Transform agent, float wanderRadius, float wanderDistance, float wanderAngle) {
         StatsBasicAgent agentBasic = agent.GetComponent<StatsBasicAgent>();
         Rigidbody agentRB = agent.GetComponent<Rigidbody>();
 
@@ -108,5 +95,13 @@ public class SteeringBehaviour2 {
         // agent.transform.LookAt(toLook);
 
         return steering;
+    }
+
+    private static Vector3 truncate(Vector3 vector, float maxValue) {
+        if (vector.magnitude <= maxValue) { 
+        return vector;
+        }
+        vector.Normalize();
+        return vector*=maxValue;
     }
 }

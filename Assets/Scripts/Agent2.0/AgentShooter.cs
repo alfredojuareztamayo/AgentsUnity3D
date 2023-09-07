@@ -11,30 +11,53 @@ using UnityEngine;
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 public class AgentShooter : MonoBehaviour {
-    private AgentBasic2 agenteShooter;
     private StatsBasicAgent statsBA;
-    private SteeringBehaviour2 m_stb;
-    public Transform target;
+   // private SteeringBehaviour2 m_stb;
     private Rigidbody m_rigidbody;
-    Collider[] eyePercived;
+    private Collider[] eyePercived;
+   
+
+    public Transform target;
+
+    //private enum MovementAgent { None, Seek, Flee }
+    //private enum ActionAgent { None, Attack, Heal, Running }
+
+    private MovementAgent moveState = MovementAgent.None;
+    private ActionAgent actionState = ActionAgent.None;
+
+    [SerializeField] private GameObject bullet;
     [Header("Set to true for team blue")]
     public bool checkLayerTeam;
     private int layerMask;
-    private ActionAgent actionState;
-    private MovementAgent moveState;
-    [SerializeField] GameObject bullet;
 
-    /// <summary>
-    /// Initialization method called when the object is created.
-    /// </summary>
+    private bool isAttacking = false;
+    private float attackCooldown = 2f;
+
     private void Start() {
-        // Retrieve and initialize components
-        statsBA = GetComponent<StatsBasicAgent>();
-        agenteShooter = new AgentBasic2(TypeAgent2.Shooter);
-        m_stb = new SteeringBehaviour2();
-        m_rigidbody = GetComponent<Rigidbody>();
+        InitializeComponents();
+    }
 
-        // Initialize agent's stats
+    private void Update() {
+        DecisionManager();
+    }
+
+    private void FixedUpdate() {
+        PerceptionManager();
+
+        // Asegurarse de que target sea nulo si no se ha encontrado ningún objetivo en la percepción
+        if (target == null) {
+            moveState = MovementAgent.None;
+            actionState = ActionAgent.None;
+        }
+    }
+
+    private void InitializeComponents() {
+        statsBA = GetComponent<StatsBasicAgent>();
+        //agenteShooter = new AgentBasic2(TypeAgent2.Shooter);
+        //m_stb = new SteeringBehaviour2();
+        m_rigidbody = GetComponent<Rigidbody>();
+        AgentBasic2 agenteShooter = new AgentBasic2(TypeAgent2.Shooter);
+
         statsBA.Vida = agenteShooter.Vida;
         statsBA.Velocidad = agenteShooter.Velocidad;
         statsBA.Armadura = agenteShooter.Armadura;
@@ -45,59 +68,39 @@ public class AgentShooter : MonoBehaviour {
         statsBA.EyesPerceptionRad = 30f;
 
         // Set the layer mask based on team
-        if (checkLayerTeam) {
-            layerMask = 1 << 6;
-        } else {
-            layerMask = 1 << 7;
-        }
+        layerMask = checkLayerTeam ? 1 << 6 : 1 << 7;
     }
 
-    /// <summary>
-    /// Update method called once per frame to make decisions.
-    /// </summary>
-    private void Update() {
-        DecisionManager();
-    }
-
-    /// <summary>
-    /// FixedUpdate method called at a fixed interval for physics updates.
-    /// </summary>
-    private void FixedUpdate() {
-        PerceptionManager();
-    }
-
-    /// <summary>
-    /// Manages perception by detecting nearby objects.
-    /// </summary>
     private void PerceptionManager() {
         eyePercived = Physics.OverlapSphere(statsBA.EyePerception.position, statsBA.EyesPerceptionRad, layerMask);
     }
 
-    /// <summary>
-    /// Manages decision-making based on perception.
-    /// </summary>
     private void DecisionManager() {
         if (eyePercived == null) {
+            // Si no se percibe ningún objetivo, establecer el objetivo como nulo (ninguno)
+            target = null;
+            moveState = MovementAgent.None;
+            actionState = ActionAgent.None;
             return;
         }
 
-        float dist;
-        TypeAgent2 tempType;
         foreach (Collider obj in eyePercived) {
-            dist = Vector3.Distance(this.transform.position, obj.transform.position);
+            float dist = Vector3.Distance(transform.position, obj.transform.position);
+            TypeAgent2 tempType = obj.GetComponent<StatsBasicAgent>().TypeAgent;
+
             if (dist > 50) {
                 moveState = MovementAgent.None;
                 actionState = ActionAgent.None;
                 continue;
             }
 
-            tempType = obj.GetComponent<StatsBasicAgent>().TypeAgent;
             if (tempType == TypeAgent2.Melee && dist > 30f) {
                 target = obj.transform;
                 moveState = MovementAgent.None;
                 actionState = ActionAgent.Attack;
                 break;
             }
+
             if (tempType == TypeAgent2.Melee && dist < 5f) {
                 target = obj.transform;
                 moveState = MovementAgent.Flee;
@@ -111,9 +114,6 @@ public class AgentShooter : MonoBehaviour {
         eyePercived = null;
     }
 
-    /// <summary>
-    /// Manages movement behavior based on the specified movement agent.
-    /// </summary>
     private void MovementManager(MovementAgent movementAgent) {
         switch (movementAgent) {
             case MovementAgent.None:
@@ -126,9 +126,6 @@ public class AgentShooter : MonoBehaviour {
         }
     }
 
-    /// <summary>
-    /// Manages action behavior based on the specified action agent.
-    /// </summary>
     private void ActionManager(ActionAgent actionAgent) {
         switch (actionAgent) {
             case ActionAgent.None:
@@ -143,27 +140,32 @@ public class AgentShooter : MonoBehaviour {
         }
     }
 
-    /// <summary>
-    /// Coroutine to stop fleeing after a certain time.
-    /// </summary>
     private IEnumerator StopFleeing() {
-        m_rigidbody.velocity = m_stb.Flee(this.transform, target);
-        m_stb.lookAt(transform);
+        m_rigidbody.velocity = SteeringBehaviour2.Flee(transform, target.position);
+        SteeringBehaviour2.lookAt(transform);
         yield return new WaitForSeconds(4f);
         moveState = MovementAgent.None;
         actionState = ActionAgent.None;
     }
 
-    /// <summary>
-    /// Coroutine to start attacking and instantiate bullets.
-    /// </summary>
     private IEnumerator StartAttack() {
-        Instantiate(bullet, transform.position, transform.rotation);
-        GetComponent<Renderer>().material.color = Color.green;
-        Color c = Color.gray;
-        target.GetComponent<StatsBasicAgent>().MeAtacan(c);
-        yield return new WaitForSeconds(2f);
-        GetComponent<Renderer>().material.color = Color.white;
+        if (isAttacking) {
+            yield break;
+        }
+
+        isAttacking = true;
+
+        while (target != null) {
+            Instantiate(bullet, transform.position, transform.rotation);
+            GetComponent<Renderer>().material.color = Color.green;
+            Color c = Color.gray;
+            target.GetComponent<StatsBasicAgent>().MeAtacan(c);
+
+            yield return new WaitForSeconds(attackCooldown);
+
+            GetComponent<Renderer>().material.color = Color.white;
+        }
+
+        isAttacking = false;
     }
 }
-
