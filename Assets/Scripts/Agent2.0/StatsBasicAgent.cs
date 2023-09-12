@@ -16,6 +16,7 @@ public class StatsBasicAgent : MonoBehaviour {
     [SerializeField] float maxVel;
     [SerializeField] float steeringForce;
     [SerializeField] float wanderAngleDelta;
+    [SerializeField] float arrivalRadius;
     [SerializeField] TypeAgent2 typeAgent;
     [SerializeField] Transform m_eyePerception;
     [SerializeField] float m_eyesPerceptionRad;
@@ -96,6 +97,11 @@ public class StatsBasicAgent : MonoBehaviour {
         set { wanderAngleDelta = value; }
     }
 
+    public float ArrivalRadius
+    {
+        get { return arrivalRadius; }
+        set { arrivalRadius = value; }
+    }
     /// <summary>
     /// Gets or sets the type of the agent.
     /// </summary>

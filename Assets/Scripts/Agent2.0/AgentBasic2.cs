@@ -120,6 +120,14 @@ public class AgentBasic2 {
                 MaxVel = 4f;
                 SteeringForce = 5f;
                 break;
+            case TypeAgent2.Vigila:
+                Vida = 120f;
+                Armadura = 40f;
+                Velocidad = 160f;
+                Fuerza = 80;
+                MaxVel = 3f;
+                SteeringForce = 6f;
+                break;
         }
     }
 }
@@ -130,12 +138,16 @@ public class AgentBasic2 {
 public enum TypeAgent2 {
     Melee,
     Tank,
-    Shooter
+    Shooter,
+    Vigila
 }
 public enum MovementAgent {
     None,
     Seek,
-    Flee
+    Flee,
+    Wander,
+    Pursuit,
+    Arrival
 }
 public enum ActionAgent {
     None,
