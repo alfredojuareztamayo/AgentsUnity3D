@@ -125,8 +125,8 @@ public class AgentBasic2 {
                 Armadura = 40f;
                 Velocidad = 160f;
                 Fuerza = 80;
-                MaxVel = 3f;
-                SteeringForce = 6f;
+                MaxVel = 2f;
+                SteeringForce = 4f;
                 break;
         }
     }

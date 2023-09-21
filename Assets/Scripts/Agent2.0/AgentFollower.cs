@@ -9,11 +9,13 @@ using UnityEngine;
 public class AgentFollower : MonoBehaviour
 {
     [SerializeField]private Vector3[] path;
-    Rigidbody m_rb;
+    Rigidbody m_rigidbody;
+    private StatsBasicAgent statsBA;
     private int currentPath;
     void Start()
     {
-       m_rb = GetComponent<Rigidbody>();
+        InitializeComponents();
+        //m_rigidbody = GetComponent<Rigidbody>();
         currentPath = 0;
         path = new Vector3[5];
         path[0] = new Vector3(15,1,0);
@@ -35,10 +37,31 @@ public class AgentFollower : MonoBehaviour
             // Comprobar si hemos llegado al final de la trayectoria
             if (currentPath >= path.Length)
             {
-                // Reiniciar la trayectoria desde el principio (puedes ajustar esto según tus necesidades)
+                // Reiniciar la trayectoria desde el principio 
                 currentPath = 0;
             }
         }
-        transform.Translate(SteeringBehaviour2.PathFollow(path,transform,currentPath));
+        m_rigidbody.velocity = SteeringBehaviour2.Seek(transform, path[currentPath]);
+        //transform.Translate(SteeringBehaviour2.PathFollow(path,transform,currentPath));
+    }
+    private void InitializeComponents()
+    {
+        statsBA = GetComponent<StatsBasicAgent>();
+        //m_stb = new SteeringBehaviour2();
+        m_rigidbody = GetComponent<Rigidbody>();
+        AgentBasic2 agentVigila = new AgentBasic2(TypeAgent2.Vigila);
+
+        statsBA.Vida = agentVigila.Vida; // Valor predeterminado de vida
+        statsBA.Velocidad = agentVigila.Velocidad; // Velocidad predeterminada
+        statsBA.Armadura = agentVigila.Armadura; // Armadura predeterminada
+        statsBA.Fuerza = agentVigila.Fuerza; // Fuerza predeterminada
+        statsBA.MaxVel = agentVigila.MaxVel; // Velocidad máxima predeterminada
+        statsBA.SteeringForce = agentVigila.SteeringForce; // Fuerza de dirección predeterminada
+        statsBA.EyesPerceptionRad = 10f;
+        statsBA.ArrivalRadius = 3.5f;
+        statsBA.TypeAgent = TypeAgent2.Vigila;
+        statsBA.WanderAngleDelta = 2f;
+        // Establecer la máscara de capa según el equipo
+       // layerMask = checkLayerTeam ? 1 << 6 : 1 << 7;
     }
 }
